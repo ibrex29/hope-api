@@ -23,4 +23,4 @@ RUN yarn build
 
 
 # Start the application
-CMD ["yarn", "start:dev"]
+CMD ["yarn", "start:prod"]
