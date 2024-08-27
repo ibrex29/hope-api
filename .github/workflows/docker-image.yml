@@ -1,0 +1,66 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  # Docker Build Job
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build the Docker image
+        id: build
+        run: docker build . --file Dockerfile --tag my-image-name:latest
+
+  # Prisma Migrations Job
+  prisma:
+    runs-on: ubuntu-latest
+    needs: build  # Ensure this job runs only if the build job is successful
+
+    services:
+      postgres:
+        image: postgres:13
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mydb
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Wait for Postgres
+        run: |
+          until pg_isready -h localhost -p 5432 -U postgres; do
+            echo "Waiting for Postgres...";
+            sleep 1;
+          done
+
+      - name: Apply Migrations
+        env:
+          DATABASE_URL: postgresql://hopedb_q8ds_user:LiVk9Z3mr9vZtJmYojtDZlu1hpIUqn8O@dpg-cr76ata3esus738atr20-a.oregon-postgres.render.com/hopedb_q8ds
+        run: npx prisma migrate deploy --schema=prisma/schema.prisma
+
+      - name: Check Migration Status
+        env:
+          DATABASE_URL: postgresql://hopedb_q8ds_user:LiVk9Z3mr9vZtJmYojtDZlu1hpIUqn8O@dpg-cr76ata3esus738atr20-a.oregon-postgres.render.com/hopedb_q8ds
+        run: |
+          if npx prisma migrate status --schema=prisma/schema.prisma | grep -q "Pending"; then
+            echo "Schema drift detected. Please ensure your Prisma schema and the migration files are in sync.";
+            exit 1
+          else
+            echo "No schema drift detected."
+          fi
