@@ -64,3 +64,16 @@ jobs:
           else
             echo "No schema drift detected."
           fi
+
+  # Deployment Job
+  deploy:
+    runs-on: ubuntu-latest
+    needs: prisma  # Ensure this job runs only if the prisma job is successful
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Trigger Render Deployment
+        run: |
+          curl -X POST "https://api.render.com/deploy/srv-cr76gc2j1k6c73f3rcpg?key=xBtOW1wDn3A"
